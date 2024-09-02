@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nginx-sf
+  labels:
+    app: myapp-nginx
+spec:
+  selector:
+    matchLabels:
+      app: nginx-pod
+#  replicas: 5
+  template:
+    metadata:
+      labels:
+        app: nginx-pod
+    spec:
+     affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 10
+              preference:
+                matchExpressions:
+                  - key: performance
+                    operator: NotIn
+                    values:
+                      - high
+     #tolerations:
+     # - key: control-plane
+     #   operator: Exists
+     #   effect: NoSchedule
+     containers:
+      - name: nginx-container
+        image: morsh92/nginx_auth:1.21.1-alpine
+        env:
+         - name: SECRET_USERNAME
+           valueFrom:
+            secretKeyRef:
+              name: auth-basic
+              key: username
+         - name: SECRET_PASSWD
+           valueFrom:
+            secretKeyRef:
+              name: auth-basic
+              key: password  
+        ports:
+          - containerPort: 80
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/nginx.conf
+          subPath: http.properties
+        livenessProbe:
+         exec:
+          command:
+          - curl 
+          - http://username1:password1@sf-webserver
+         initialDelaySeconds: 15
+         periodSeconds: 15
+     terminationGracePeriodSeconds: 30
+     volumes:
+      - name:  nginx-config
+        configMap:
+         name: nginx-test
